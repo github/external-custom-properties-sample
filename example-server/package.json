@@ -1,0 +1,33 @@
+{
+  "name": "external-custom-properties-example-server",
+  "version": "1.0.0",
+  "description": "Example GitHub App server that writes external custom properties to repositories on installation",
+  "main": "app.js",
+  "type": "module",
+  "scripts": {
+    "server": "node app.js",
+    "lint": "eslint .",
+    "test": "node --test test/*.test.mjs"
+  },
+  "keywords": [
+    "github-app",
+    "external-custom-properties",
+    "webhook"
+  ],
+  "author": "GitHub, Inc.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.2",
+    "octokit": "^5.0.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.11.0",
+    "globals": "^17.12.0",
+    "smee-client": "^5.0.0",
+    "undici": "^8.10.2"
+  }
+}

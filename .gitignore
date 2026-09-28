@@ -1,0 +1,11 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+
+# Certificates and private keys
+*.pem
+
+# Local isolated worktrees
+.worktrees/

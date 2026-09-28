@@ -1,0 +1,25 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/devcontainers/images/tree/main/src/javascript-node
+{
+	"name": "External custom properties example server",
+	"image": "mcr.microsoft.com/devcontainers/javascript-node:3-24-bookworm",
+	"updateContentCommand": "npm --prefix example-server install",
+
+	"customizations": {
+		"vscode": {
+			"extensions": ["GitHub.copilot"]
+		}
+	},
+
+	"features": {
+		"ghcr.io/devcontainers/features/github-cli:1": {}
+	},
+
+	"portsAttributes": {
+		"3000": {
+			"label": "Webhook endpoint"
+		}
+	},
+
+	"forwardPorts": [3000]
+}
