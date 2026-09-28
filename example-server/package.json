@@ -20,7 +20,7 @@
     "node": ">=24"
   },
   "dependencies": {
-    "dotenv": "^18.0.2",
+    "dotenv": "^18.0.4",
     "octokit": "^5.0.5"
   },
   "devDependencies": {
