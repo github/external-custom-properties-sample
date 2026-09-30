@@ -156,8 +156,9 @@ async function registerNamespace(octokit, org) {
         `This app installation cannot register itself in ${org} (it needs ADMIN on ` +
         `"External custom properties for repositories"). An org admin — or a user/token with the ` +
         `organization_external_properties_for_repos:admin fine-grained permission — must call the ` +
-        `registration endpoint with this installation's installation_id (see the README, ` +
-        `"Write-only apps"). Value writes will fail until the installation is registered.`
+        `registration endpoint with this installation's installation_id. See ` +
+        `https://docs.github.com/en/organizations/managing-organization-settings/sync-external-custom-properties#selecting-permissions. ` +
+        `Value writes will fail until the installation is registered.`
       );
       return false;
     }
@@ -205,7 +206,7 @@ async function writeExternalCustomProperties(octokit, org, repositoryNames, prop
     if (isNotRegisteredError(error)) {
       console.warn(
         `Cannot write properties to ${org}: the app installation is not registered yet. ` +
-        `Register the namespace first (or wait for an org admin to register a write-only app).`
+        `Register the namespace first (or wait for an org admin to register an app that only has Read and write).`
       );
       return false;
     }
@@ -505,7 +506,8 @@ app.webhooks.onError((error) => {
 // --- Periodic sync ---
 // Re-applies properties on a schedule to catch drift or newly added repos. Assumes the
 // installation is already registered (from the installation.created flow, or by an org admin for
-// write-only apps). If it is not yet registered, writeExternalCustomProperties logs a clear message.
+// apps that only have Read and write). If it is not yet registered, writeExternalCustomProperties
+// logs a clear message.
 
 async function periodicSync() {
   console.log(`[Sync] Running periodic sync...`);

@@ -1,31 +1,8 @@
 # External custom properties example server
 
-This guide walks you through setting up a GitHub App that writes **external custom properties** to repositories in your organization using the external custom properties API.
+A runnable GitHub App that writes external custom properties to repositories in an organization.
 
-External custom properties allow third-party integrations (GitHub Apps) to attach metadata to repositories — such as deployment environment, owning team, service tier, compliance status, or any custom key-value data your tooling produces. These properties are scoped to a **namespace** owned by the app that created them and are visible to anyone who can view custom properties in the organization, alongside native custom properties.
-
----
-
-## How it works: namespaces and registration
-
-Before an app can write external custom properties, its installation must **register a namespace** in the organization. A namespace is identified by a **display name** you choose (for example, `acme`). Once registered:
-
-- Every property the app writes is surfaced in GitHub as `<display_name>.<property_name>` — e.g. `acme.environment`.
-- The namespace is **scoped to the app installation** within that org. Properties written by App A are separate from those written by App B.
-- Registration is a **one-time, immutable** step per installation.
-- Uninstalling the GitHub App unregisters it and removes the external custom properties it created.
-
-The typical calling pattern is:
-
-1. **Register** the namespace (`POST /orgs/{org}/properties/installations`).
-2. **Batch write** values for one or more repositories (`PATCH /orgs/{org}/properties/installations/values`).
-3. Optionally **create, update, or unset one named property across selected repositories** (`PATCH /orgs/{org}/properties/installations/values/{property_name}`).
-4. Optionally **read registrations or property definitions** to verify setup.
-5. Read values through the existing REST or GraphQL custom property APIs. External custom property names are namespace-qualified in these responses, for example `acme.environment`.
-
-Writing values **before** registering returns an error. Who performs step 1 depends on the app's permission level — see [Permissions and who registers](#permissions-and-who-registers).
-
-For the display name, property name, and value constraints, see the [REST API reference](#api-reference).
+**New to external custom properties?** Start with [Integrating custom properties with an external system](https://docs.github.com/en/organizations/managing-organization-settings/sync-external-custom-properties), which explains what they are, how namespacing and registration work, and the permissions an app needs. This README covers configuring and running *this* server.
 
 ---
 
@@ -62,43 +39,11 @@ If you're new to building GitHub Apps, the [Quickstart for building GitHub Apps]
 
 ## Permissions and who registers
 
-Access to each endpoint is controlled by the organization permission **"External custom properties for repositories"**, which has three levels: **Read**, **Write**, and **Admin**.
+Before an app can write values, its installation must be registered with a display name. The app can do this itself, or an organization administrator can do it on the app's behalf — which one applies depends on the permission level the app is granted.
 
-| Action | Endpoint | Permission required |
-|--------|----------|---------------------|
-| Get registered GitHub App installations | `GET /orgs/{org}/properties/installations` | **Admin** |
-| Register a GitHub App installation | `POST /orgs/{org}/properties/installations` | **Admin** |
-| Get external custom property definitions | `GET /orgs/{org}/properties/installations/schema` | **Read** |
-| Create or update external custom property values for repositories | `PATCH /orgs/{org}/properties/installations/values` | **Write** |
-| Create or update an external custom property value for repositories | `PATCH /orgs/{org}/properties/installations/values/{property_name}` | **Write** |
-| Remove one property across all organization repositories | `DELETE /orgs/{org}/properties/installations/values/{property_name}` | **Write** |
+**This example server registers itself**, so it asks for **Admin** on the "External custom properties for repositories" organization permission.
 
-There are two ways to register, depending on how much control the org wants to delegate to the app:
-
-### Self-service apps (this guide's default)
-
-Grant the app **Admin**. When the app is installed, it **registers its own namespace** using its installation access token, then writes values. This is what the example server does.
-
-### Write-only apps (org-admin-controlled namespacing)
-
-If you prefer that an org owner keep full control over namespacing rather than delegating it to the app, grant the app only **Write**. In this model:
-
-- The app **cannot** register itself — the registration endpoint rejects a Write-only installation.
-- An **org admin**, or a user/token holding the `organization_external_properties_for_repos:admin` fine-grained permission, calls the registration endpoint **on the app's behalf**, passing the app's `installation_id`.
-- Until the installation is registered, the app's value writes are rejected as not registered.
-
-To register a Write-only app's installation as an org admin, first find the installation ID (`GET /orgs/{org}/installations`), then call:
-
-```bash
-curl -X POST \
-  -H "Authorization: Bearer YOUR_FINE_GRAINED_PAT" \
-  -H "Accept: application/vnd.github+json" \
-  -H "X-GitHub-Api-Version: 2022-11-28" \
-  -d '{"installation_id": 42, "display_name": "acme"}' \
-  https://api.github.com/orgs/YOUR_ORG/properties/installations
-```
-
-The caller must be authorized for **Admin** on "External custom properties for repositories" in the org — this can be an **organization owner/admin**, or any user or fine-grained personal access token granted the `organization_external_properties_for_repos:admin` permission. Once registered, the Write-only app can write values normally.
+For the full permission model — including when to choose Admin versus Read and write, and who can register on an app's behalf — see [Selecting permissions](https://docs.github.com/en/organizations/managing-organization-settings/sync-external-custom-properties#selecting-permissions). The access level and token types each endpoint requires are listed in [Permissions required for GitHub Apps](https://docs.github.com/en/rest/authentication/permissions-required-for-github-apps#organization-permissions-for-external-custom-properties-for-repositories).
 
 ---
 
@@ -135,7 +80,7 @@ For full details on app registration, see [Registering a GitHub App](https://doc
 4. Set permissions:
    - Under **Organization permissions**, find **"External custom properties for repositories"** and select **Admin**.
 
-   > **Why Admin?** This example server registers its own namespace on installation, which requires Admin. If you instead want an org owner to control namespacing, select **Write** and follow [Write-only apps](#write-only-apps-org-admin-controlled-namespacing) — an org admin registers the app before it can write values.
+   > **Why Admin?** This example server registers its own namespace on installation, which requires Admin. If you'd rather an org owner control namespacing, select **Read and write** instead — see [Selecting permissions](https://docs.github.com/en/organizations/managing-organization-settings/sync-external-custom-properties#selecting-permissions).
 
 5. Subscribe to events:
    - Check the **Installation** event (this fires when the app is installed on an org)
@@ -174,7 +119,7 @@ For full details on app registration, see [Registering a GitHub App](https://doc
    - **APP_ID**: The App ID from your app's settings page
    - **WEBHOOK_SECRET**: The webhook secret you chose in Step 2
    - **PRIVATE_KEY_PATH**: Path to the `.pem` file you downloaded
-   - **DISPLAY_NAME**: The namespace display name to register (1–15 alphanumeric characters, unique in the org). Property values appear as `<DISPLAY_NAME>.<property_name>`.
+   - **DISPLAY_NAME**: The namespace display name to register. Properties appear in GitHub as `<DISPLAY_NAME>.<property_name>`. For the length and character rules, see [Register an app installation for external custom properties](https://docs.github.com/en/rest/orgs/custom-properties#register-an-app-installation-for-external-custom-properties).
 
 5. Move the downloaded `.pem` file into the `example-server/` directory (or update the path in `.env` to point to its location).
 
@@ -232,9 +177,9 @@ Periodic sync scheduled every 60 minutes
 1. From your app's settings page, click **"Public page"** (in the left sidebar)
 2. Click **Install**
 3. Select your organization
-4. Choose repository access:
-   - Since the External custom properties permission operates at the organization level, the app will be installed with access to **All repositories** by default. You won't see an option to select individual repos unless the app also has repository-level permissions.
-5. Click **Install**
+4. Click **Install**
+
+> **Note:** You won't be asked to pick individual repositories. See [Install the app](https://docs.github.com/en/organizations/managing-organization-settings/sync-external-custom-properties#4-install-the-app) for why.
 
 When the installation completes, GitHub sends an `installation.created` webhook event to your configured webhook URL. The example server registers the namespace, writes external custom properties to the org's first repository, and reads the schema back.
 
@@ -262,20 +207,16 @@ When the installation completes, GitHub sends an `installation.created` webhook 
 
 ## API Reference
 
-The External custom properties REST endpoints are documented in the GitHub REST API reference. Each link below covers the full request body, responses, and error cases for that endpoint.
+Each endpoint links to its entry in the [REST API reference](https://docs.github.com/en/rest/orgs/custom-properties), which documents the request body, responses, and error cases for that endpoint. Between them, those entries also cover display name rules, property name and value constraints, request size limits, and cleanup behavior. The access level and token types each endpoint requires are listed in [Permissions required for GitHub Apps](https://docs.github.com/en/rest/authentication/permissions-required-for-github-apps#organization-permissions-for-external-custom-properties-for-repositories). The [setup guide](https://docs.github.com/en/organizations/managing-organization-settings/sync-external-custom-properties#3-create-the-automation) lists them in the order an integration typically calls them, and each has a matching helper in [`example-server/app.js`](example-server/app.js).
 
-| # | Endpoint | Reference |
-|---|----------|-----------|
-| 1 | `GET /orgs/{org}/properties/installations` | [Get registered app installations for external custom properties](https://docs.github.com/en/rest/orgs/custom-properties#get-registered-app-installations-for-external-custom-properties) |
-| 2 | `POST /orgs/{org}/properties/installations` | [Register an app installation for external custom properties](https://docs.github.com/en/rest/orgs/custom-properties#register-an-app-installation-for-external-custom-properties) |
-| 3 | `GET /orgs/{org}/properties/installations/schema` | [Get all external custom properties for a GitHub App installation in an organization](https://docs.github.com/en/rest/orgs/custom-properties#get-all-external-custom-properties-for-a-github-app-installation-in-an-organization) |
-| 4 | `PATCH /orgs/{org}/properties/installations/values` | [Create or update external custom property values for organization repositories](https://docs.github.com/en/rest/orgs/custom-properties#create-or-update-external-custom-property-values-for-organization-repositories) |
-| 5 | `PATCH /orgs/{org}/properties/installations/values/{property_name}` | [Create or update external custom property values for a property across organization repositories](https://docs.github.com/en/rest/orgs/custom-properties#create-or-update-external-custom-property-values-for-a-property-across-organization-repositories) |
-| 6 | `DELETE /orgs/{org}/properties/installations/values/{property_name}` | [Remove all external custom property values for a property across all organization repositories](https://docs.github.com/en/rest/orgs/custom-properties#remove-all-external-custom-property-values-for-a-property-across-all-organization-repositories) |
-
-Request limits, display name rules, property name and value constraints, and cleanup behavior are all documented alongside these endpoints in the [REST API reference for organization custom properties](https://docs.github.com/en/rest/orgs/custom-properties).
-
-Each endpoint maps to a helper function in [`example-server/app.js`](example-server/app.js), so you can see a working call for every one of them.
+| Endpoint | Helper function |
+|----------|-----------------|
+| [`POST /orgs/{org}/properties/installations`](https://docs.github.com/en/rest/orgs/custom-properties#register-an-app-installation-for-external-custom-properties) | `registerNamespace` |
+| [`GET /orgs/{org}/properties/installations`](https://docs.github.com/en/rest/orgs/custom-properties#get-registered-app-installations-for-external-custom-properties) | `getRegisteredInstallations` |
+| [`GET /orgs/{org}/properties/installations/schema`](https://docs.github.com/en/rest/orgs/custom-properties#get-all-external-custom-properties-for-a-github-app-installation-in-an-organization) | `readOrgSchema` |
+| [`PATCH /orgs/{org}/properties/installations/values`](https://docs.github.com/en/rest/orgs/custom-properties#create-or-update-external-custom-property-values-for-organization-repositories) | `writeExternalCustomProperties` |
+| [`PATCH /orgs/{org}/properties/installations/values/{property_name}`](https://docs.github.com/en/rest/orgs/custom-properties#create-or-update-external-custom-property-values-for-a-property-across-organization-repositories) | `updateExternalCustomPropertyValues` |
+| [`DELETE /orgs/{org}/properties/installations/values/{property_name}`](https://docs.github.com/en/rest/orgs/custom-properties#remove-all-external-custom-property-values-for-a-property-across-all-organization-repositories) | `deleteExternalCustomPropertyValues` |
 
 ---
 
@@ -292,7 +233,7 @@ For working examples of both, see `readRepositoryCustomPropertyValues`, `readRep
 
 ## Troubleshooting
 
-Error responses and their meanings are documented with each endpoint in the [REST API reference](#api-reference).
+Error responses and their meanings are documented with each endpoint in the [REST API reference](https://docs.github.com/en/rest/orgs/custom-properties).
 
 ### Webhook not received
 
