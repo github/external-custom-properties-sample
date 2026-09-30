@@ -1,6 +1,7 @@
 {
   "name": "external-custom-properties-example-server",
   "version": "1.0.0",
+  "private": true,
   "description": "Example GitHub App server that writes external custom properties to repositories on installation",
   "main": "app.js",
   "type": "module",
